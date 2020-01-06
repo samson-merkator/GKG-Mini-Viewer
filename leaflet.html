@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+  crossorigin=""/>
+  <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+  <!-- Make sure you put this AFTER Leaflet's CSS -->
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+  integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+  crossorigin=""></script>
+
+  <style>  #mapid { height: 600px; } </style>
+  <style>  #mapvid { width: 300px; } </style>
+  <link href="style.css" rel="stylesheet">
+  <script defer src="script.js"></script>
+</head>
+<body>
+  <button data-modal-target="#modal">Ask Questions</button>
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="title">GKG Frequently Asked Questions</div>
+      <button data-close-button class="close-button">&times;</button>
+    </div>
+    <div class="modal-body">
+<!-- put these in a section-->
+            <!--<h1>Select your question:</h1>--> 
+<!--This helps to display a scrolled message on the page --> 
+<marquee scrollamount="10"
+direction="left"
+behavior="scroll">
+Please note when no data is displayed it means the Question cannot be currently answered. We are working on answering more questions...
+</marquee>
+       
+    <div id ="wgtmsr">Vragen:
+        <select id="questionData" name="data" style="width:160px" onmousedown="this.value='';" onchange="jsFunction(this.value);">                    
+            <option value="ElektraKabelLaagspanning_Enexis">Wat is het zomer- en winterpeil hier?</option>
+            <option value="ElektraLaadpaal_Enexis">Wat is de stroomrichting van deze watergang?</option>
+            <option value="water:Hemelwaterriool_Gemeentegroningen">Mag ik deze boom kappen?</option>
+            </select>
+            <br><br>
+        </div>
+<!-- Get input post code-->
+Postcode:
+            <input type="text" id="postcode" placeholder="Postcode" title="Voer uw postcode in" pattern="^\s*?\d{5}(?:[-\s]\d{4})?\s*?$" maxlength="6" size="6">
+            <button onclick="getLocation()">Antwoord</button>
+           <!-- <button onclick="getPostCode()">Get Answer</button>-->
+        
+<!-- put the questions and buttons in a section-->  
+
+<!-- This is the map container -->
+
+            <div class ="article" id="mapid"></div>
+            <p id="demo"></p>     
+
+    </div>
+  </div>
+  
+  <div id="overlay"></div>
+
+<!-- this is the Java script functions -->
+  <script>
+        /* Gets the layer  from the question and build a dictionary for the wms request*/
+          function jsFunction(value){                           
+              
+              var e = document.getElementById("questionData");
+              var data = e.options[e.selectedIndex].value;
+              var option = {'transparent': true,layers: 'water:Gemengdriool_Gemeentegroningen',opacity: 0.5};
+              option['layers']= data                  
+              return option;                   
+
+          }
+
+          var x = document.getElementById("demo");
+          var questions
+          function getLocation(position) {
+
+              if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(showPosition,error);                    
+  
+              } else { 
+
+                  drawmap()
+
+
+                   x.innerHTML = "Geolocation is not supported by this browser.";
+              }
+              /*return latlon;*/
+              }
+          /*Checks if user denied the browser geolocation*/
+              function error(error) {
+                  switch(error.code) {
+                      case error.PERMISSION_DENIED:
+                      x.innerHTML = "User denied the request for Geolocation."
+                      /* TODO Add a reset option to reset the browser api when user denies browser access*/
+                      break;
+                      case error.POSITION_UNAVAILABLE:
+                      x.innerHTML = "Location information is unavailable."
+                      break;
+                      case error.TIMEOUT:
+                      x.innerHTML = "The request to get user location timed out."
+                      break;
+                      case error.UNKNOWN_ERROR:
+                      x.innerHTML = "An unknown error occurred."
+                      break;
+                  }
+                  }
+          /*Extracts the lat lon from the users geolocation*/
+          function showPosition(position) {
+              getPostCode()
+              
+              lats =  position.coords.latitude; 
+              lons = position.coords.longitude;
+              console.log("Auto" + lats,lons)
+              
+              }
+
+      
+
+
+          var mymap 
+      /* Gets the infilled geolocation and extracts the relevant cordinates*/
+      function getPostCode(){
+          var w = document.getElementById("postcode").value
+          console.log(w)
+          var weather    
+          var api = 'https://geodata.nationaalgeoregister.nl/locatieserver/v3/free?q=';
+          var postcode = w;
+          var url = api + postcode
+          var result = $.getJSON(url)              
+           
+
+      result.done(function(data) {
+          if (w.length==0){
+              pointList = [lats,lons]
+          }else{
+              queryLat = data['response']['docs']['0']['centroide_ll']
+              dtype = queryLat.split(" ")
+              lon = dtype[0].split("(")[1]
+              lat = dtype[1].split(")")[0]
+              pointList = [lat,lon]
+          }            
+          console.log(pointList)
+          drawmap()
+      })
+      }     
+          /*initializes the map object*/
+          function drawmap(position){                                          
+
+              if(this.mymap) {                    
+                  this.mymap.remove();
+                  }
+              // initialize the map  
+              console.log(pointList)               
+              mymap = L.map('mapid',{drawControl: true}).setView(pointList, 15,{crs: L.CRS.EPSG28992});
+              x.innerHTML = "Latitude: " + pointList + 
+              "<br>Longitude: " + pointList;
+              // load a tile layer
+              L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+              attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+              maxZoom: 18,
+              id: 'mapbox/streets-v11',
+              accessToken: 'pk.eyJ1IjoiYm9hZGlzYW1zb24iLCJhIjoiY2szb2Q1azN6MDdkeTNjbXUwbWhxeGo0bCJ9.3IqHR8qNvkvX9rgeddbqxA'
+               }).addTo(mymap);
+
+               var marker = L.marker(pointList).addTo(mymap);
+              /* var marker = L.marker([position.coords.latitude, position.coords.longitude]).addTo(mymap);*/
+              
+               getMSData();
+      }    
+
+      function getMSData(insertData){            
+
+          var wmsLayer = {
+              Answer: L.tileLayer.wms('http://at.gegevensknooppuntgroningen.nl/geoserver/energie/wms?',jsFunction()).addTo(mymap)                      
+             
+          }
+          /*L.control.layers(wmsLayer).addTo(mymap);*/
+          };   
+      
+      
+      </script>
+
+</body>
+</html>
